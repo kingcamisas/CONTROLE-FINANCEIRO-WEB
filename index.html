@@ -21,7 +21,17 @@
  <section class="panel rv"><div class="ph"><h2 id="mt"></h2><button id="novo" class="pri">Nova dívida</button></div><div id="lista"></div><div class="tot" id="tot"></div></section>
 </section>
 <section id="v-contas" class="view" hidden>
- <section class="panel rv"><div class="ph"><h2>Bancos, cofrinhos e entradas</h2><div class="bar"><button id="nb">Novo banco</button><button id="nk">Novo cofrinho</button><button id="nent">Nova entrada</button><button id="dep">Depositar</button><button id="ret">Retirar</button><button id="trf">Transferir</button></div></div><div class="sum" id="cs"></div><div id="lc"></div></section>
+ <section class="sum cs rv" id="cs"></section>
+ <div class="qa rv" role="group" aria-label="Movimentar dinheiro">
+  <button id="dep"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg>Depositar</button>
+  <button id="ret"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V5M7 9l5-5 5 5M5 20h14"/></svg>Retirar</button>
+  <button id="trf"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h14M14 4l4 4-4 4M20 16H6M10 12l-4 4 4 4"/></svg>Transferir</button>
+ </div>
+ <div id="lc">
+  <section class="panel rv"><div class="sec"><h2>Bancos e cofrinhos</h2><div class="adds"><button id="nb" class="mini">Novo banco</button><button id="nk" class="mini">Novo cofrinho</button></div></div><div id="lca"></div></section>
+  <section class="panel rv"><div class="sec"><h2>Movimentos</h2></div><div id="lcm"></div></section>
+  <section class="panel rv"><div class="sec"><h2>Entradas extras</h2><button id="nent" class="mini">Nova entrada</button></div><small class="small">Valores além da renda mensal.</small><div id="lce"></div></section>
+ </div>
 </section>
 <section id="v-cartoes" class="view" hidden>
  <section class="sum rv" id="csm"></section>

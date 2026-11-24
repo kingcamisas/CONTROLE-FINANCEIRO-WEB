@@ -30,6 +30,9 @@ function rotulo(d,a,m){
  if(d.tipo==="unica")return"única";
  return d.fim?"fixa até "+MN[+d.fim.slice(5)-1]+"/"+d.fim.slice(0,4):"fixa"}
 function el(t,c,x){const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e}
+const ICO={edit:'<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>',del:'<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5M14 11v5"/>',banco:'<path d="M3 10l9-6 9 6M5 10v8M9 10v8M15 10v8M19 10v8M3 20h18"/>',cofre:'<ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"/>',entrada:'<circle cx="12" cy="12" r="9"/><path d="M12 7v10M8 13l4 4 4-4"/>'};
+function svg(k){const s=document.createElementNS("http://www.w3.org/2000/svg","svg");s.setAttribute("viewBox","0 0 24 24");s.setAttribute("aria-hidden","true");s.innerHTML=ICO[k]||"";return s}
+function ib(k,label){const b=el("button","ib "+k);b.type="button";b.title=label;b.setAttribute("aria-label",label);b.append(svg(k));return b}
 function render(){
  $("ano").textContent=ano;$("renda").value=S.renda||"";$("rnome").value=S.rendaNome||"";
  const tot=[],pg=[];
@@ -57,7 +60,7 @@ function detalhe(t,R){
   cb.type="checkbox";cb.checked=p;cb.dataset.k=chave(d,ano,mes);cb.setAttribute("aria-label","Marcar como pago");
   const w=el("span");w.style.minWidth="0";w.append(el("div","nm",d.nome),el("small","",rotulo(d,ano,mes)+(d.cat?" · "+d.cat:"")+(d.cartao?" · cartão "+nomeCartao(d.cartao):"")));
   lb.append(cb,w);
-  const v=el("span","v",brl.format(d.valor)),e=el("button","","Editar"),x=el("button","","Excluir");
+  const v=el("span","v",brl.format(d.valor)),e=ib("edit","Editar dívida"),x=ib("del","Excluir dívida");
   e.dataset.e=d.id;x.dataset.x=d.id;r.append(lb,v,e,x);L.append(r)});
  const en=[];if(S.renda)en.push([S.rendaNome||"Renda mensal",S.renda,"renda mensal"]);
  S.entradas.filter(d=>ocorre(d,ano*12+mes-1)).forEach(d=>en.push([d.nome,d.valor,d.tipo==="unica"?"entrada extra":"entrada mensal"]));
@@ -206,26 +209,40 @@ function migrar(){S.contas=S.contas||[];S.cofre=S.cofre||[];
 function sub(t){const h=el("small","",t);h.style.cssText="display:block;margin:14px 0 4px";return h}
 function fillSel(s,sel){s.textContent="";S.contas.forEach(c=>{const o=document.createElement("option");o.value=c.id;o.textContent=(c.tipo==="banco"?"Banco · ":"Cofrinho · ")+c.nome;s.append(o)});if(sel)s.value=sel}
 function tipoConta(c){return c.tipo==="banco"?"banco":c.fluxo?"cofrinho de fluxo (pode usar em compras)":"cofrinho só para juntar"}
+let movTodos=false;
+function linha(o){const r=el("div","it"+(o.ico?" hasic":""));
+ if(o.ico){const i=el("span","ico");i.append(svg(o.ico));r.append(i)}
+ r.append(el("div","t",o.nome),el("div","v"+(o.cls?" "+o.cls:""),o.valor),el("small","s",o.sub||""));
+ if(o.acoes&&o.acoes.length){const a=el("div","a");o.acoes.forEach(x=>a.append(x));r.append(a)}
+ return r}
+function grupo(box,t,n){const h=el("div","grp");h.append(el("span","",t));if(n!=null)h.append(el("small","",String(n)));box.append(h)}
 function cofre(){const h0=hoje.getFullYear()*12+hoje.getMonth(),box=$("cs");box.textContent="";
  let proj=0;for(let m=1;m<=12;m++){const i=ano*12+m-1;if(i<h0||S.cofre.some(x=>x.auto===ymStr(ano,m)))continue;proj+=Math.max(0,rendaMes(i)-totIdx(i))}
- const sb=bancos().reduce((a,c)=>a+saldoDe(c.id),0),cards=[];
- S.contas.forEach(c=>cards.push([(c.tipo==="banco"?"Banco":"Cofrinho")+" · "+c.nome,brl.format(saldoDe(c.id))]));
- if(bancos().length>1)cards.push(["Bancos somados",brl.format(sb)]);
- cards.push(["Bancos em dez/"+ano+" recebendo toda a sobra",brl.format(sb+proj)]);
- cards.forEach(([k,v])=>{const d=el("div");d.append(el("small","",k),el("b","",v));box.append(d)});
- const L=$("lc");L.textContent="";L.append(sub("Contas: bancos e cofrinhos"));
- S.contas.forEach(c=>{const r=el("div","row"),w=el("span");w.style.flex="1";w.append(el("div","nm",c.nome),el("small","",tipoConta(c)));
-  const e=el("button","","Editar"),x=el("button","","Excluir");e.dataset.ke=c.id;x.dataset.kx=c.id;r.append(w,el("span","v",brl.format(saldoDe(c.id))),e,x);L.append(r)});
- L.append(sub("Movimentos"));
- const mv=S.cofre.slice().sort((a,b)=>b.ym.localeCompare(a.ym));
- if(!mv.length)L.append(el("div","vazio","Nada ainda. Abra um mês e use “Receber … no banco”, ou o botão Depositar."));
- mv.forEach(x=>{const r=el("div","row"),w=el("span");w.style.flex="1";w.append(el("div","nm",x.nota||(x.valor>0?"Depósito":"Retirada")),el("small","",nomeConta(x.conta)+" · "+fmtYM(x.ym)));
-  const b=el("button","","Excluir");b.dataset.cd=x.id;r.append(w,el("span","v"+(x.valor<0?" neg":""),(x.valor>0?"+":"")+brl.format(x.valor)),b);L.append(r)});
- L.append(sub("Entradas extras (além da renda mensal)"));
- if(!S.entradas.length)L.append(el("div","vazio","Nenhuma. Use para 13º, bônus, vendas ou um período em que você recebe mais."));
- S.entradas.forEach(x=>{const r=el("div","row"),w=el("span");w.style.flex="1";
-  w.append(el("div","nm",x.nome),el("small","",x.tipo==="unica"?fmtYM(x.inicio):"todo mês desde "+fmtYM(x.inicio)+(x.fim?" até "+fmtYM(x.fim):"")));
-  const e=el("button","","Editar"),b=el("button","","Excluir");e.dataset.ee=x.id;b.dataset.ex=x.id;r.append(w,el("span","v pos","+"+brl.format(x.valor)),e,b);L.append(r)})}
+ const sb=bancos().reduce((a,c)=>a+saldoDe(c.id),0),sc=S.contas.filter(c=>c.tipo!=="banco").reduce((a,c)=>a+saldoDe(c.id),0);
+ [["Disponível nos bancos",brl.format(sb),"hero"],["Nos cofrinhos",brl.format(sc)],["Bancos em dez/"+ano+", recebendo toda a sobra",brl.format(sb+proj)]].forEach(([k,v,c])=>{const d=el("div",c||"");d.append(el("small","",k),el("b","",v));box.append(d)});
+ // bancos e cofrinhos
+ const A=$("lca");A.textContent="";
+ const bs=S.contas.filter(c=>c.tipo==="banco"),cs=S.contas.filter(c=>c.tipo!=="banco");
+ const conta=c=>{const e=ib("edit","Editar "+c.nome),x=ib("del","Excluir "+c.nome);e.dataset.ke=c.id;x.dataset.kx=c.id;
+  return linha({ico:c.tipo==="banco"?"banco":"cofre",nome:c.nome,valor:brl.format(saldoDe(c.id)),sub:c.tipo==="banco"?"Dinheiro disponível":c.fluxo?"Pode usar em compras":"Só para juntar",acoes:[e,x]})};
+ grupo(A,"Bancos",bs.length);bs.forEach(c=>A.append(conta(c)));
+ grupo(A,"Cofrinhos",cs.length);
+ if(!cs.length)A.append(el("div","vazio","Nenhum cofrinho ainda. Use “Novo cofrinho” para separar dinheiro de uma meta."));
+ cs.forEach(c=>A.append(conta(c)));
+ // movimentos, agrupados por mês
+ const M=$("lcm");M.textContent="";
+ const mv=S.cofre.slice().sort((a,b)=>b.ym.localeCompare(a.ym)),vis=movTodos?mv:mv.slice(0,12);
+ if(!mv.length)M.append(el("div","vazio","Nada ainda. Abra um mês e use “Receber … no banco”, ou o botão Depositar."));
+ let ult="";
+ vis.forEach(x=>{if(x.ym!==ult){ult=x.ym;grupo(M,fmtYM(x.ym))}
+  const b=ib("del","Excluir movimento");b.dataset.cd=x.id;
+  M.append(linha({nome:x.nota||(x.valor>0?"Depósito":"Retirada"),valor:(x.valor>0?"+":"")+brl.format(x.valor),cls:x.valor<0?"neg":"pos",sub:nomeConta(x.conta),acoes:[b]}))});
+ if(mv.length>vis.length){const b=el("button","mini mais","Mostrar todos ("+mv.length+")");b.dataset.mt="1";M.append(b)}
+ // entradas extras
+ const E=$("lce");E.textContent="";
+ if(!S.entradas.length)E.append(el("div","vazio","Nenhuma. Use para 13º, bônus, vendas ou um período em que você recebe mais."));
+ S.entradas.forEach(x=>{const e=ib("edit","Editar "+x.nome),b=ib("del","Excluir "+x.nome);e.dataset.ee=x.id;b.dataset.ex=x.id;
+  E.append(linha({ico:"entrada",nome:x.nome,valor:"+"+brl.format(x.valor),cls:"pos",sub:x.tipo==="unica"?fmtYM(x.inicio):"Todo mês desde "+fmtYM(x.inicio)+(x.fim?" até "+fmtYM(x.fim):""),acoes:[e,b]}))})}
 function removerMov(id){const x=S.cofre.find(m=>m.id===id);if(!x)return;const antes=S.cofre;
  S.cofre=antes.filter(m=>m.id!==id&&!(x.par&&m.par===x.par));
  if(S.contas.some(c=>saldoDe(c.id)<-0.001)){S.cofre=antes;toast("Não dá para excluir: algum saldo ficaria negativo.",false);return}
@@ -263,6 +280,7 @@ $("fmv").onsubmit=e=>{e.preventDefault();const t=$("mtp").value,c=$("mco").value
  else{const o={id:uid(),conta:c,ym,valor:t==="dep"?v:-v,nota};if(autoYm&&t==="dep")o.auto=autoYm;S.cofre.push(o)}
  autoYm=null;$("dc").close();salvar();render()};
 $("lc").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
+ if(b.dataset.mt){movTodos=true;render();return}
  if(b.dataset.cd)return removerMov(b.dataset.cd);
  if(b.dataset.ee)return abrirEnt(b.dataset.ee);
  if(b.dataset.ke)return abrirK(b.dataset.ke);
@@ -341,7 +359,7 @@ function receber(){const box=$("lrec"),sm=$("rsm");box.textContent="";sm.textCon
  L.forEach(({r,i})=>{const row=el("div","row"+(r.rec?" pago":"")),lb=el("label"),cb=document.createElement("input"),w=el("span");
   cb.type="checkbox";cb.checked=!!r.rec;cb.dataset.rc=r.id;cb.setAttribute("aria-label","Marcar como recebido");
   w.append(el("div","nm",r.nome),el("small","",fmtD(r.data)+(r.obs?" · "+r.obs:"")));lb.append(cb,w);
-  const ch=el("span","ch "+i.c,i.t),v=el("span","v",brl.format(r.valor)),e=el("button","","Editar"),x=el("button","","Excluir");e.dataset.re=r.id;x.dataset.rx=r.id;
+  const ch=el("span","ch "+i.c,i.t),v=el("span","v",brl.format(r.valor)),e=ib("edit","Editar conta a receber"),x=ib("del","Excluir conta a receber");e.dataset.re=r.id;x.dataset.rx=r.id;
   row.append(lb,ch,v,e,x);box.append(row)})}
 $("lrec").addEventListener("change",e=>{const id=e.target.dataset.rc;if(!id)return;const r=S.receber.find(x=>x.id===id);r.rec=e.target.checked;r.rdata=r.rec?iso(new Date()):"";salvar();render()});
 $("lrec").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
@@ -414,28 +432,24 @@ async function baixar(nome,make,tipo){const msg=$("xmsg");let dl=null;
 const TABS=["inicio","contas","cartoes","receber","metas","rel"],VISTO=new Set(),ULT={n:0};let tab="inicio";
 function ir(t){tab=t;TABS.forEach(x=>{$("v-"+x).hidden=x!==t});
  document.querySelectorAll("#nav button").forEach(b=>{const on=b.dataset.t===t;b.classList.toggle("on",on);b.setAttribute("aria-current",on?"page":"false")});
- $("fab").hidden=t==="rel";window.scrollTo(0,0);if(t==="rel")relatorios();animTab(t)}
+ $("fab").hidden=t==="rel"||t==="contas";window.scrollTo(0,0);if(t==="rel")relatorios();animTab(t)}
 function animTab(t){if(!anim())return;const v=$("v-"+t);
- gsap.fromTo(v.querySelectorAll(".rv"),{opacity:0,scale:.96},{opacity:1,scale:1,duration:.55,stagger:.08,ease:"power3.out",overwrite:"auto"});
+ gsap.fromTo(v.querySelectorAll(".rv"),{opacity:0,y:8},{opacity:1,y:0,duration:.4,stagger:.05,ease:"power3.out",overwrite:"auto",clearProps:"transform"});
  v.querySelectorAll(".pb i").forEach(i=>gsap.fromTo(i,{scaleX:0},{scaleX:1,duration:.9,ease:"power2.out",delay:.2}));
  if(window.ScrollTrigger)ScrollTrigger.refresh()}
 function numAnim(e,n,k){const de=ULT[k]==null?0:ULT[k];ULT[k]=n;if(!anim()||de===n)return;const o={v:de},sn=gsap.utils.snap(.01);
  gsap.to(o,{v:n,duration:.9,ease:"power2.out",onUpdate:()=>{e.textContent=brl.format(sn(o.v))}})}
-function tilesFx(gm){if(ULT.ano!==ano){ULT.ano=ano;if(anim())gsap.from(gm.children,{y:24,opacity:0,scale:.92,duration:.5,stagger:.035,ease:"back.out(1.4)"})}
+function tilesFx(gm){if(ULT.ano!==ano){ULT.ano=ano;if(anim())gsap.from(gm.children,{y:12,opacity:0,duration:.4,stagger:.03,ease:"power3.out",clearProps:"transform"})}
  const s=gm.querySelector(".sel");if(s&&gm.scrollWidth>gm.clientWidth+4)gm.scrollTo({left:s.offsetLeft-(gm.clientWidth-s.offsetWidth)/2,behavior:ULT.n++?"smooth":"auto"})}
 function fx(){if(!window.gsap)return;if(window.ScrollTrigger)gsap.registerPlugin(ScrollTrigger);
  const mm=gsap.matchMedia();
  mm.add("(prefers-reduced-motion: no-preference)",()=>{
   const tl=gsap.timeline({defaults:{ease:"power3.out"}});
   tl.fromTo("header",{y:-60,opacity:0},{y:0,opacity:1,duration:.5},0)
-   .fromTo("#v-inicio .rv",{opacity:0,scale:.96},{opacity:1,scale:1,duration:.6,stagger:.08},.2)
+   .fromTo("#v-inicio .rv",{opacity:0,y:8},{opacity:1,y:0,duration:.45,stagger:.05,clearProps:"transform"},.15)
    .fromTo("#nav button",{y:30,opacity:0},{y:0,opacity:1,stagger:.05,duration:.4},.3)
-   .fromTo("#fab",{scale:0,rotation:-120},{scale:1,rotation:0,duration:.6,ease:"back.out(1.8)",clearProps:"transform"},.7);
-  if(window.ScrollTrigger)gsap.utils.toArray(".rv").forEach((e,i)=>gsap.fromTo(e,{y:i%2?44:28},{y:0,ease:"none",scrollTrigger:{trigger:e,start:"top bottom",end:"top 60%",scrub:.6}}));
-  const io=new IntersectionObserver(es=>es.forEach(e=>{if(!e.isIntersecting)return;io.unobserve(e.target);e.target.__o=0;
-   const k=tab+"|"+e.target.textContent.slice(0,90);if(VISTO.has(k))return;VISTO.add(k);gsap.from(e.target,{x:-28,opacity:0,duration:.55,ease:"power3.out"})}),{threshold:.15});
-  window.obsLista=()=>document.querySelectorAll(".row,.cartao,.meta").forEach(n=>{if(!n.__o){n.__o=1;io.observe(n)}});window.obsLista();
-  return()=>{io.disconnect();window.obsLista=null}})}
+   .fromTo("#fab",{scale:.8,opacity:0},{scale:1,opacity:1,duration:.35,clearProps:"transform"},.5);
+  })}
 function iniciar(){
  $("nav").addEventListener("click",e=>{const b=e.target.closest("button");if(b)ir(b.dataset.t)});
  $("fab").onclick=()=>{({inicio:()=>abrir(),contas:()=>abrirMov("dep"),cartoes:()=>abrirCar(),receber:()=>abrirRec(),metas:()=>abrirMeta()}[tab]||(()=>{}))()};
