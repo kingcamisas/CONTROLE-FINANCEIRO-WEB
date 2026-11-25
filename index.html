@@ -2,14 +2,19 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <title>Controle de Dívidas</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header><div class="ttl"><h1>Controle de dívidas</h1><small id="st"></small></div><div class="bar"><button id="bk" class="ghost">Backup</button><button id="tema" class="ghost" aria-label="Alternar tema">Tema</button></div></header>
+<header><div class="ttl"><h1>Controle de dívidas</h1><button id="st" class="stl" type="button" aria-label="Abrir conta e salvamento"></button></div>
+<div class="bar">
+ <button id="conta" class="ghost hb" type="button" aria-label="Conta e salvamento na nuvem" title="Conta"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg></button>
+ <button id="bk" class="ghost hb" type="button" aria-label="Backup e importação" title="Backup"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg></button>
+ <button id="tema" class="ghost hb" type="button" aria-label="Alternar tema" title="Tema"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg></button>
+</div></header>
 <main>
 <section id="v-inicio" class="view">
  <div id="alr" class="alr rv" hidden></div>
@@ -81,6 +86,24 @@
  </form>
 </dialog>
 
+<dialog id="dacc"><form id="facc" method="dialog">
+ <h2>Salvar na nuvem</h2>
+ <div id="acoff" hidden><p class="small" style="margin:8px 0">A nuvem ainda não está configurada neste site. Siga o passo a passo do arquivo LEIA-ME-NUVEM.md e preencha o firebase-config.js. Até lá, seus dados ficam salvos só neste aparelho.</p></div>
+ <div id="acout" hidden>
+  <p class="small" style="margin:8px 0">Entre com seu e-mail e tudo o que você fizer é salvo sozinho. Em outro celular ou computador, entre com o mesmo e-mail e seus dados aparecem.</p>
+  <label class="f">E-mail<input id="ace" type="email" autocomplete="email" inputmode="email" autocapitalize="none" autocorrect="off" spellcheck="false"></label>
+  <label class="f">Senha (mínimo 6 caracteres)<input id="acs" type="password" autocomplete="current-password" autocapitalize="none"></label>
+  <div class="acts"><button type="button" id="accr">Criar conta</button><button class="pri" type="submit">Entrar</button></div>
+  <button type="button" id="acfg" class="link">Esqueci a senha</button>
+ </div>
+ <div id="acin" hidden>
+  <p style="margin:8px 0">Conectado como <b id="acem"></b></p>
+  <p class="small" style="margin:4px 0">Tudo o que você altera é salvo automaticamente na sua conta.</p>
+  <div class="acts"><button type="button" id="acsync">Atualizar agora</button><button type="button" id="acsair">Sair</button></div>
+ </div>
+ <p id="acm" role="status" style="color:var(--mu);margin:12px 0 0"></p>
+ <div class="acts"><button type="button" id="accx">Fechar</button></div>
+</form></dialog>
 <dialog id="dbk">
  <h2>Backup e importação</h2>
  <p style="color:var(--mu);margin:6px 0">Copie o texto abaixo para guardar seus dados. Para importar, cole aqui o conteúdo do seu backup ou do antigo dividas.json e clique em Importar.</p>
@@ -141,6 +164,10 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

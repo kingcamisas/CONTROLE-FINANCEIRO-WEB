@@ -9,10 +9,13 @@ let ano=hoje.getFullYear(),mes=hoje.getMonth()+1,chart=null,editId=null,lixo=nul
 try{const r=localStorage.getItem(KEY);if(r)S=Object.assign(S,JSON.parse(r))}catch(e){}
 let ref=null,tmr=0,mexeu=false;
 function status(t){$("st").textContent=t}
-function empacotar(){return{itens:S.itens,pago:Object.keys(S.pago),renda:S.renda||0,tema:S.tema||"",metas:S.metas,entradas:S.entradas,cofre:S.cofre,contas:S.contas,rendaNome:S.rendaNome||"",cartoes:S.cartoes,receber:S.receber,categorias:S.categorias}}
+function empacotar(){return{itens:S.itens,pago:Object.keys(S.pago),renda:S.renda||0,tema:S.tema||"",metas:S.metas,entradas:S.entradas,cofre:S.cofre,contas:S.contas,rendaNome:S.rendaNome||"",cartoes:S.cartoes,receber:S.receber,categorias:S.categorias,_t:Date.now()}}
+let sujo=false;
 function salvar(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}
- if(!ref){mexeu=true;return}clearTimeout(tmr);status("Salvando…");
- tmr=setTimeout(()=>ref.set(empacotar()).then(()=>status("Salvo na sua conta"),()=>status("Salvo só neste navegador")),500)}
+ if(!ref){mexeu=true;return}clearTimeout(tmr);sujo=true;status("Salvando…");
+ tmr=setTimeout(()=>{const d=empacotar();
+  Promise.resolve().then(()=>ref&&ref.set(d)).then(()=>{sujo=false;try{localStorage.removeItem(KEY+".pend");localStorage.setItem(KEY+".t",String(d._t))}catch(e){}status("Salvo na sua conta")},
+   ()=>{sujo=false;try{localStorage.setItem(KEY+".pend","1")}catch(e){}status("Sem conexão: salvo só neste aparelho")})},500)}
 const idx=ym=>{const[a,m]=ym.split("-").map(Number);return a*12+m-1};
 const ymStr=(a,m)=>a+"-"+String(m).padStart(2,"0");
 function ocorre(d,i){const s=idx(d.inicio);
@@ -474,7 +477,90 @@ $("im").onclick=()=>{try{const j=JSON.parse($("tx").value);
  else if(j&&Array.isArray(j.itens)){S.itens=j.itens;S.metas=j.metas||[];S.entradas=j.entradas||[];S.cofre=j.cofre||[];S.contas=j.contas||[];S.rendaNome=j.rendaNome||"";S.cartoes=j.cartoes||[];S.receber=j.receber||[];if(j.categorias&&j.categorias.length)S.categorias=j.categorias;migrar();S.pago=j.pago||{};S.renda=j.renda||0;$("msg").textContent="Backup restaurado."}
  else throw 0;
  salvar();render()}catch(e){$("msg").textContent="Texto inválido. Cole o JSON completo."}};
-migrar();render();iniciar();
+// ===== nuvem: login por e-mail + salvamento automático (Firebase) =====
+const NV={ok:false,user:null,doc:null,auth:null,db:null};
+const copia=x=>JSON.parse(JSON.stringify(x));
+const temDados=()=>!!(S.itens.length||S.entradas.length||S.receber.length||S.cartoes.length||S.metas.length||S.cofre.length||S.renda);
+function aplicar(d){
+ S.itens=copia(d.itens||[]);S.metas=copia(d.metas||[]);S.entradas=copia(d.entradas||[]);S.cofre=copia(d.cofre||[]);S.contas=copia(d.contas||[]);
+ S.rendaNome=d.rendaNome||"";S.cartoes=copia(d.cartoes||[]);S.receber=copia(d.receber||[]);
+ if(d.categorias&&d.categorias.length)S.categorias=copia(d.categorias);
+ S.pago={};(d.pago||[]).forEach(k=>S.pago[k]=1);S.renda=d.renda||0;S.tema=d.tema||S.tema||"";
+ migrar();try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}
+ if(S.tema)document.documentElement.dataset.theme=S.tema;render()}
+function mesclar(d){
+ const L={itens:S.itens,metas:S.metas,entradas:S.entradas,cofre:S.cofre,contas:S.contas,cartoes:S.cartoes,receber:S.receber},pg=Object.assign({},S.pago),rn=S.renda,rnm=S.rendaNome,cats=S.categorias.slice();
+ aplicar(d);
+ Object.keys(L).forEach(k=>{const ids=new Set(S[k].map(x=>x.id));L[k].forEach(x=>{if(!ids.has(x.id))S[k].push(copia(x))})});
+ Object.assign(S.pago,pg);if(!S.renda&&rn)S.renda=rn;if(!S.rendaNome&&rnm)S.rendaNome=rnm;
+ cats.forEach(c=>{if(!S.categorias.includes(c))S.categorias.push(c)});
+ migrar();render()}
+function lerSnap(s){try{const x=s.data();return x&&x.json?JSON.parse(x.json):null}catch(e){return null}}
+function ligar(doc){NV.doc=doc;ref={set:d=>doc.set({v:1,_t:d._t,json:JSON.stringify(d)})}}
+const msgC=t=>{$("acm").textContent=t||""};
+function erroAuth(e){const c=e&&e.code||"";
+ return({"auth/invalid-email":"E-mail inválido.","auth/missing-password":"Digite a senha.","auth/weak-password":"A senha precisa ter pelo menos 6 caracteres.",
+ "auth/email-already-in-use":"Este e-mail já tem conta. Toque em Entrar.","auth/invalid-credential":"E-mail ou senha incorretos.","auth/wrong-password":"E-mail ou senha incorretos.",
+ "auth/user-not-found":"E-mail ou senha incorretos.","auth/too-many-requests":"Muitas tentativas. Espere alguns minutos e tente de novo.","auth/network-request-failed":"Sem conexão com a internet.",
+ "auth/operation-not-allowed":"Login por e-mail não está ativado no Firebase (veja o LEIA-ME-NUVEM.md)."}[c])||("Não deu certo ("+(c||e&&e.message||"erro")+").")}
+function atualizarConta(){const u=NV.user;$("conta").classList.toggle("on",!!u);
+ $("acoff").hidden=NV.ok;$("acout").hidden=!NV.ok||!!u;$("acin").hidden=!NV.ok||!u;if(u)$("acem").textContent=u.email||""}
+async function entrou(u){
+ status("Sincronizando…");
+ try{
+  const doc=NV.db.collection("users").doc(u.uid),snap=await doc.get();
+  const vinc=localStorage.getItem(KEY+".uid")===u.uid,pend=localStorage.getItem(KEY+".pend")==="1";
+  const d=snap.exists?lerSnap(snap):null;let subir=false;
+  if(!d)subir=true;
+  else if(vinc&&pend)subir=true;
+  else if(!vinc&&temDados()){try{localStorage.setItem(KEY+".bkp",JSON.stringify(S))}catch(e){}mesclar(d);subir=true}
+  else{aplicar(d);try{localStorage.setItem(KEY+".t",String(d._t||0))}catch(e){}}
+  try{localStorage.setItem(KEY+".uid",u.uid)}catch(e){}
+  ligar(doc);
+  if(subir)salvar();else status("Salvo na sua conta");
+ }catch(e){ref=null;NV.doc=null;
+  status(e&&e.code==="permission-denied"?"Conta sem permissão: confira as regras do Firestore":"Sem conexão com a conta: salvo só neste aparelho");
+  if(e&&e.code==="permission-denied")msgC("O Firestore recusou o acesso. Confira as regras de segurança no LEIA-ME-NUVEM.md.")}
+ atualizarConta()}
+async function puxar(){
+ if(!NV.doc||sujo||localStorage.getItem(KEY+".pend")==="1")return false;
+ try{const s=await NV.doc.get();if(!s.exists)return false;const d=lerSnap(s),t=+localStorage.getItem(KEY+".t")||0;
+  if(d&&d._t&&d._t>t){aplicar(d);try{localStorage.setItem(KEY+".t",String(d._t))}catch(e){}status("Atualizado com os dados da sua conta");return true}}catch(e){}
+ return false}
+async function entrarConta(criar){
+ const em=$("ace").value.trim(),sn=$("acs").value;
+ if(!em||!sn){msgC("Digite o e-mail e a senha.");return}
+ msgC(criar?"Criando conta…":"Entrando…");
+ try{if(criar)await NV.auth.createUserWithEmailAndPassword(em,sn);else await NV.auth.signInWithEmailAndPassword(em,sn);
+  $("acs").value="";msgC("");$("dacc").close()}catch(e){msgC(erroAuth(e))}}
+function iniciarNuvem(){
+ $("conta").onclick=$("st").onclick=()=>{atualizarConta();msgC("");$("dacc").showModal()};
+ $("accx").onclick=()=>$("dacc").close();
+ const cfg=window.FIREBASE_CONFIG;
+ NV.ok=!!(cfg&&cfg.apiKey&&cfg.projectId&&window.firebase&&firebase.initializeApp);
+ if(NV.ok){try{firebase.initializeApp(cfg);NV.auth=firebase.auth();NV.db=firebase.firestore()}catch(e){NV.ok=false}}
+ atualizarConta();if(!NV.ok)return;
+ $("facc").onsubmit=e=>{e.preventDefault();entrarConta(false)};
+ $("accr").onclick=()=>entrarConta(true);
+ $("acfg").onclick=async()=>{const em=$("ace").value.trim();if(!em){msgC("Digite seu e-mail acima e toque em Esqueci a senha.");return}
+  try{await NV.auth.sendPasswordResetEmail(em);msgC("Enviamos um e-mail para criar uma nova senha. Olhe também o spam.")}catch(e){msgC(erroAuth(e))}};
+ $("acsync").onclick=async()=>{msgC("Atualizando…");if(sujo||localStorage.getItem(KEY+".pend")==="1"){salvar();msgC("Enviando suas alterações…");return}
+  msgC(await puxar()?"Pronto: dados atualizados.":"Você já está com os dados mais recentes.")};
+ $("acsair").onclick=async()=>{
+  if(sujo||localStorage.getItem(KEY+".pend")==="1"){msgC("Ainda há alterações sem enviar. Conecte-se à internet e espere \"Salvo na sua conta\" antes de sair.");return}
+  if(!confirm("Sair da conta? Os dados serão apagados deste aparelho (continuam salvos na sua conta)."))return;
+  try{await NV.auth.signOut()}catch(e){}
+  ["",".uid",".t",".pend",".bkp"].forEach(s=>{try{localStorage.removeItem(KEY+s)}catch(e){}});location.reload()};
+ NV.auth.onAuthStateChanged(u=>{NV.user=u;
+  if(u)entrou(u);else{ref=null;NV.doc=null;status("Salvo só neste aparelho");atualizarConta()}});
+ document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")puxar()});
+ window.addEventListener("online",()=>{if(ref&&localStorage.getItem(KEY+".pend")==="1")salvar()})}
+// teclado do celular: mantém a janela visível e rola até o campo
+if(window.visualViewport){const vv=visualViewport,r=document.documentElement;
+ const f=()=>{r.style.setProperty("--vvh",vv.height+"px");r.style.setProperty("--vvt",vv.offsetTop+"px");r.classList.toggle("kb",window.innerHeight-vv.height>120)};
+ vv.addEventListener("resize",f);vv.addEventListener("scroll",f);f()}
+document.addEventListener("focusin",e=>{const t=e.target;if(t&&t.closest&&t.closest("dialog")&&/^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName))setTimeout(()=>{try{t.scrollIntoView({block:"center",behavior:"smooth"})}catch(_){}},350)});
+migrar();render();iniciar();iniciarNuvem();
 // dados privados por pessoa: cada visitante grava só na própria área
 (async()=>{try{
  status("Salvo só neste navegador");
