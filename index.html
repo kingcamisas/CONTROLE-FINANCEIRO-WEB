@@ -17,6 +17,7 @@
 </div></header>
 <main>
 <section id="v-inicio" class="view">
+ <div id="alg" class="alg rv"></div>
  <div id="alr" class="alr rv" hidden></div>
  <div class="top rv"><div class="year"><button id="ant" aria-label="Ano anterior">‹</button><span id="ano"></span><button id="prox" aria-label="Próximo ano">›</button></div>
   <div class="renda"><input id="rnome" maxlength="40" placeholder="Nome da renda (ex.: Salário)" aria-label="Nome da renda"><label class="renda">Valor mensal <input id="renda" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00"></label></div></div>
@@ -34,6 +35,9 @@
  </div>
  <div id="lc">
   <section class="panel rv"><div class="sec"><h2>Bancos e cofrinhos</h2><div class="adds"><button id="nb" class="mini">Novo banco</button><button id="nk" class="mini">Novo cofrinho</button></div></div><div id="lca"></div></section>
+  <section class="panel rv"><div class="sec"><h2>Rendimento (CDI)</h2></div>
+   <div class="cdir"><label>CDI hoje, em % ao ano<input id="cdi" type="number" min="0" step="0.01" inputmode="decimal"></label><button id="cdibc" type="button">Buscar no Banco Central</button></div>
+   <small class="small" id="cdim">Referência de nov/2026: 13,65% ao ano. Em cada banco ou cofrinho, informe quantos % do CDI ele rende (ex.: 100) para ver quanto rende por mês.</small></section>
   <section class="panel rv"><div class="sec"><h2>Movimentos</h2></div><div id="lcm"></div></section>
   <section class="panel rv"><div class="sec"><h2>Entradas extras</h2><button id="nent" class="mini">Nova entrada</button></div><small class="small">Valores além da renda mensal.</small><div id="lce"></div></section>
  </div>
@@ -47,7 +51,8 @@
  <section class="panel rv"><div class="ph"><h2>Contas a receber</h2><button class="pri" id="nrec">Nova conta a receber</button></div><div id="lrec"></div></section>
 </section>
 <section id="v-metas" class="view" hidden>
- <section class="panel rv"><div class="ph"><h2>Metas e compras planejadas</h2><button id="nmeta" class="pri">Nova meta</button></div><small class="small">Cada meta é analisada sozinha: o mesmo saldo pode aparecer em mais de uma.</small><div id="lm"></div></section>
+ <section class="panel rv"><div class="ph"><h2>Guardar dinheiro</h2><button id="ngu" class="pri">Nova meta de guardar</button></div><small class="small">Diga quanto pretende guardar por mês, mais ou menos. Quando a sobra do mês permitir, o app avisa na tela Início e você guarda com um toque.</small><div id="lgu"></div></section>
+ <section class="panel rv"><div class="ph"><h2>Compras planejadas</h2><button id="nmeta">Nova compra</button></div><small class="small">Cada compra é analisada sozinha: o mesmo saldo pode aparecer em mais de uma.</small><div id="lm"></div></section>
 </section>
 <section id="v-rel" class="view" hidden>
  <section class="panel rv"><div class="fl"><label>Período<select id="rper"></select></label><label>Categoria<select id="rcat"></select></label></div></section>
@@ -122,6 +127,14 @@
  <label class="f">Folga mínima que você quer manter no mês (R$)<input id="gg" type="number" min="0" step="0.01" inputmode="decimal" value="0"></label>
  <p id="gerr" style="color:var(--bad);margin:8px 0 0" hidden></p>
  <div class="acts"><button type="button" id="gcx">Cancelar</button><button class="pri" type="submit">Salvar meta</button></div></form></dialog>
+<dialog id="dgu"><form id="fgu" method="dialog"><h2 id="gudt">Nova meta de guardar</h2>
+ <label class="f">Nome<input id="gun" required maxlength="60" placeholder="Ex.: Reserva de emergência"></label>
+ <label class="f">Quanto guardar por mês, mais ou menos (R$)<input id="guv" type="number" min="0.01" step="0.01" inputmode="decimal" required></label>
+ <label class="f">Guardar em qual cofrinho?<select id="guc"></select></label>
+ <label class="f">Valor que quer juntar (opcional)<input id="gua" type="number" min="0" step="0.01" inputmode="decimal"></label>
+ <label class="f">Começa em<input id="gui" type="month" required></label>
+ <p id="guerr" style="color:var(--bad);margin:8px 0 0" hidden></p>
+ <div class="acts"><button type="button" id="gucx">Cancelar</button><button class="pri" type="submit">Salvar meta</button></div></form></dialog>
 <dialog id="de"><form id="fe" method="dialog"><h2 id="edt">Nova entrada</h2>
  <label class="f">Nome da entrada<input id="en" required maxlength="60" placeholder="Ex.: 13º salário"></label>
  <label class="f">Valor (R$)<input id="ev" type="number" min="0.01" step="0.01" inputmode="decimal" required></label>
@@ -142,6 +155,8 @@
  <label class="f">Nome<input id="kn" required maxlength="40" placeholder="Ex.: Nubank, Caixa, Moto, Reserva"></label>
  <label class="f">Tipo<select id="kt"><option value="banco">Banco (dinheiro disponível)</option><option value="cofrinho">Cofrinho</option></select></label>
  <label class="f" id="kwu" hidden>Uso do cofrinho<select id="ku"><option value="juntar">Só para juntar dinheiro (não usar em compras)</option><option value="fluxo">De fluxo (pode usar em compras)</option></select></label>
+ <label class="f">Rende quantos % do CDI? (opcional)<input id="kc" type="number" min="0" max="300" step="0.01" inputmode="decimal" placeholder="Ex.: 100"></label>
+ <label class="f">Imposto de Renda estimado<select id="ki"><option value="0">Sem imposto (poupança, LCI/LCA ou já descontado)</option><option value="22.5">22,5% (resgate até 180 dias)</option><option value="20">20% (de 181 a 360 dias)</option><option value="17.5">17,5% (de 361 a 720 dias)</option><option value="15">15% (acima de 720 dias)</option></select></label>
  <div class="acts"><button type="button" id="kcx">Cancelar</button><button class="pri" type="submit">Salvar</button></div></form></dialog>
 <dialog id="dcard"><form id="fcard" method="dialog"><h2 id="crt">Novo cartão</h2>
  <label class="f">Nome do cartão<input id="cdn" required maxlength="40" placeholder="Ex.: Nubank, Santander"></label>
@@ -169,5 +184,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js"></script>
 <script src="app.js"></script>
+<script src="firebase-config.js"></script>
 </body>
 </html>

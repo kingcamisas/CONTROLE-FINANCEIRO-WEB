@@ -9,7 +9,7 @@ let ano=hoje.getFullYear(),mes=hoje.getMonth()+1,chart=null,editId=null,lixo=nul
 try{const r=localStorage.getItem(KEY);if(r)S=Object.assign(S,JSON.parse(r))}catch(e){}
 let ref=null,tmr=0,mexeu=false;
 function status(t){$("st").textContent=t}
-function empacotar(){return{itens:S.itens,pago:Object.keys(S.pago),renda:S.renda||0,tema:S.tema||"",metas:S.metas,entradas:S.entradas,cofre:S.cofre,contas:S.contas,rendaNome:S.rendaNome||"",cartoes:S.cartoes,receber:S.receber,categorias:S.categorias,_t:Date.now()}}
+function empacotar(){return{itens:S.itens,pago:Object.keys(S.pago),renda:S.renda||0,tema:S.tema||"",metas:S.metas,entradas:S.entradas,cofre:S.cofre,contas:S.contas,rendaNome:S.rendaNome||"",cartoes:S.cartoes,receber:S.receber,categorias:S.categorias,cdi:S.cdi||0,_t:Date.now()}}
 let sujo=false;
 function salvar(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}
  if(!ref){mexeu=true;return}clearTimeout(tmr);sujo=true;status("Salvando…");
@@ -52,7 +52,7 @@ function render(){
   b.append(el("small","",MN[i]),el("b","",brl.format(t)));
   if(t>0){const p=el("i");p.style.width=Math.min(100,pg[i]/t*100)+"%";b.append(p)}
   b.onclick=()=>{mes=m;render()};gm.append(b)});
- tilesFx(gm);detalhe(tot[mes-1],rm[mes-1]);grafico(tot,rm);metas(R);cofre();cartoes();receber();if(tab==="rel")relatorios();alertaRec();if(window.obsLista)window.obsLista();
+ tilesFx(gm);detalhe(tot[mes-1],rm[mes-1]);grafico(tot,rm);metas(R);guardarUI();cofre();cartoes();receber();if(tab==="rel")relatorios();alertaRec();alertaGuardar();if(window.obsLista)window.obsLista();
 }
 function detalhe(t,R){
  $("mt").textContent=NOMES[mes-1]+" de "+ano;
@@ -141,8 +141,9 @@ function simular(g){const n=nper(g.total-(g.entrada||0),g.parcela,(g.juros||0)/1
   const sobra=pior-g.parcela;L.push({i:h0+s,sobra,st:sobra>=folgaDe(g)?"ok":sobra>=0?"aperto":"nao"})}
  return{n,L,best:L.find(x=>x.st==="ok")||L.find(x=>x.st==="aperto")}}
 function metas(R){const box=$("lm");box.textContent="";
- if(!S.metas.length){box.append(el("div","vazio","Nenhuma meta ainda. Ex.: uma moto de R$ 20.000 pagando R$ 500 por mês."));return}
- S.metas.forEach(g=>{if(g.modo==="avista"){box.append(cardVista(g,R));return}const r=simular(g),c=el("div","meta");
+ const MP=S.metas.filter(g=>g.kind!=="guardar");
+ if(!MP.length){box.append(el("div","vazio","Nenhuma compra planejada ainda. Ex.: uma moto de R$ 20.000 pagando R$ 500 por mês."));return}
+ MP.forEach(g=>{if(g.modo==="avista"){box.append(cardVista(g,R));return}const r=simular(g),c=el("div","meta");
   c.append(el("b","",g.nome),el("div","",brl.format(g.total)+(g.entrada?" · entrada "+brl.format(g.entrada):"")+" · "+(isFinite(r.n)?r.n+" × "+brl.format(g.parcela):"parcela menor que os juros")+(g.juros?" · "+g.juros+"% a.m.":"")));
   const m=el("div","res");
   if(!R)m.textContent="Informe a renda mensal lá em cima para descobrir o melhor mês.";
@@ -222,12 +223,16 @@ function grupo(box,t,n){const h=el("div","grp");h.append(el("span","",t));if(n!=
 function cofre(){const h0=hoje.getFullYear()*12+hoje.getMonth(),box=$("cs");box.textContent="";
  let proj=0;for(let m=1;m<=12;m++){const i=ano*12+m-1;if(i<h0||S.cofre.some(x=>x.auto===ymStr(ano,m)))continue;proj+=Math.max(0,rendaMes(i)-totIdx(i))}
  const sb=bancos().reduce((a,c)=>a+saldoDe(c.id),0),sc=S.contas.filter(c=>c.tipo!=="banco").reduce((a,c)=>a+saldoDe(c.id),0);
- [["Disponível nos bancos",brl.format(sb),"hero"],["Nos cofrinhos",brl.format(sc)],["Bancos em dez/"+ano+", recebendo toda a sobra",brl.format(sb+proj)]].forEach(([k,v,c])=>{const d=el("div",c||"");d.append(el("small","",k),el("b","",v));box.append(d)});
+ $("cdi").value=cdiAa();
+ const rend=S.contas.reduce((a,c)=>a+rendeMes(c,saldoDe(c.id)).liq,0),temR=S.contas.some(c=>+c.pcdi>0);
+ const cards=[["Disponível nos bancos",brl.format(sb),"hero"],["Nos cofrinhos",brl.format(sc)],["Bancos em dez/"+ano+", recebendo toda a sobra",brl.format(sb+proj)]];
+ if(temR)cards.push(["Rendimento estimado por mês","≈ "+brl.format(rend),"wide"]);
+ cards.forEach(([k,v,c])=>{const d=el("div",c||"");d.append(el("small","",k),el("b","",v));box.append(d)});
  // bancos e cofrinhos
  const A=$("lca");A.textContent="";
  const bs=S.contas.filter(c=>c.tipo==="banco"),cs=S.contas.filter(c=>c.tipo!=="banco");
  const conta=c=>{const e=ib("edit","Editar "+c.nome),x=ib("del","Excluir "+c.nome);e.dataset.ke=c.id;x.dataset.kx=c.id;
-  return linha({ico:c.tipo==="banco"?"banco":"cofre",nome:c.nome,valor:brl.format(saldoDe(c.id)),sub:c.tipo==="banco"?"Dinheiro disponível":c.fluxo?"Pode usar em compras":"Só para juntar",acoes:[e,x]})};
+  return linha({ico:c.tipo==="banco"?"banco":"cofre",nome:c.nome,valor:brl.format(saldoDe(c.id)),sub:subConta(c),acoes:[e,x]})};
  grupo(A,"Bancos",bs.length);bs.forEach(c=>A.append(conta(c)));
  grupo(A,"Cofrinhos",cs.length);
  if(!cs.length)A.append(el("div","vazio","Nenhum cofrinho ainda. Use “Novo cofrinho” para separar dinheiro de uma meta."));
@@ -264,9 +269,9 @@ $("fe").onsubmit=e=>{e.preventDefault();const t=$("et").value,o={id:entId||uid()
 let kid=null;
 function kUI(){$("kwu").hidden=$("kt").value!=="cofrinho"}
 function abrirK(id,tipo){kid=id||null;const c=id?S.contas.find(x=>x.id===id):null;$("kdt").textContent=c?"Editar conta":(tipo==="banco"?"Novo banco":"Novo cofrinho");
- $("kn").value=c?c.nome:"";$("kt").value=c?c.tipo:(tipo||"cofrinho");$("kt").disabled=!!c;$("ku").value=c&&c.fluxo?"fluxo":"juntar";kUI();$("dk").showModal()}
+ $("kn").value=c?c.nome:"";$("kt").value=c?c.tipo:(tipo||"cofrinho");$("kt").disabled=!!c;$("ku").value=c&&c.fluxo?"fluxo":"juntar";$("kc").value=c&&c.pcdi?c.pcdi:"";$("ki").value=c&&c.ir?String(c.ir):"0";kUI();$("dk").showModal()}
 $("kt").onchange=kUI;$("nk").onclick=()=>abrirK(null,"cofrinho");$("nb").onclick=()=>abrirK(null,"banco");$("kcx").onclick=()=>$("dk").close();
-$("fk").onsubmit=e=>{e.preventDefault();const t=$("kt").value,o={nome:$("kn").value.trim(),tipo:t,fluxo:t==="cofrinho"&&$("ku").value==="fluxo"};
+$("fk").onsubmit=e=>{e.preventDefault();const t=$("kt").value,o={nome:$("kn").value.trim(),tipo:t,fluxo:t==="cofrinho"&&$("ku").value==="fluxo",pcdi:parseFloat($("kc").value)||0,ir:parseFloat($("ki").value)||0};
  if(kid)Object.assign(S.contas.find(x=>x.id===kid),o);else S.contas.push(Object.assign({id:uid()},o));$("dk").close();salvar();render()};
 // movimentos: depósito, retirada e transferência
 let autoYm=null;
@@ -300,6 +305,110 @@ $("tot").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)r
    if(bs.length===1){S.cofre.push({id:uid(),conta:bs[0].id,ym,valor:v,nota,auto:ym});salvar();render()}
    else{abrirMov("dep");$("mval").value=v;$("ci").value=ym;$("cn").value=nota;autoYm=ym}}}
  if(b.dataset.cu)removerMov(b.dataset.cu)});
+// ===== rendimento (CDI) e metas de guardar dinheiro =====
+const CDI_PADRAO=13.65;
+const cdiAa=()=>S.cdi>0?S.cdi:CDI_PADRAO;
+const fmtPct=n=>String(Math.round(n*100)/100).replace(".",",");
+function taxaMes(c){const p=+(c&&c.pcdi)||0;return p>0?Math.pow(1+cdiAa()/100*p/100,1/12)-1:0}
+function rendeMes(c,saldo){const br=Math.max(0,saldo)*taxaMes(c);return{bruto:br,liq:br*(1-(+c.ir||0)/100)}}
+function subConta(c){const base=c.tipo==="banco"?"Dinheiro disponível":c.fluxo?"Pode usar em compras":"Só para juntar";
+ if(!(+c.pcdi>0))return base;const s=saldoDe(c.id),r=rendeMes(c,s);
+ return base+" · "+fmtPct(c.pcdi)+"% do CDI"+(s>0?" · rende ≈ "+brl.format(r.liq)+"/mês":"")}
+$("cdi").onchange=()=>{S.cdi=parseFloat($("cdi").value)||0;salvar();render()};
+$("cdibc").onclick=async()=>{const m=$("cdim");m.textContent="Buscando no Banco Central…";
+ try{const r=await fetch("https://api.bcb.gov.br/dados/serie/bcdata.sgs.4389/dados/ultimos/1?formato=json"),j=await r.json(),v=parseFloat(j[0].valor);
+  if(!(v>0))throw 0;S.cdi=v;salvar();render();m.textContent="CDI de "+j[0].data+": "+fmtPct(v)+"% ao ano (Banco Central)."}
+ catch(e){m.textContent="Não consegui buscar agora. Digite o valor do CDI no campo acima."}};
+
+const guardarMetas=()=>S.metas.filter(g=>g.kind==="guardar");
+const sobraDe=i=>rendaMes(i)-totIdx(i);
+const guardadoMes=(g,ym)=>S.cofre.filter(x=>x.meta===g.id&&x.ym===ym&&x.valor>0).reduce((a,x)=>a+x.valor,0);
+const guardadoTotal=g=>S.cofre.filter(x=>x.meta===g.id&&x.valor>0).reduce((a,x)=>a+x.valor,0);
+const r2=n=>Math.round(n*100)/100;
+// quanto cabe guardar em cada mês, na ordem das metas
+function planoGuardar(i){const ym=ymI(i),L=guardarMetas().filter(g=>idx(g.inicio)<=i);
+ let resto=sobraDe(i)-L.reduce((a,g)=>a+guardadoMes(g,ym),0);
+ return L.map(g=>{const ja=guardadoMes(g,ym),falta=Math.max(0,r2(g.valor-ja)),disp=Math.max(0,r2(resto));
+  const st=falta<=0.004?"feito":disp>=falta-0.004?"ok":disp>0.004?"aperto":"nao";
+  if(st==="ok")resto-=falta;else if(st==="aperto")resto-=disp;
+  return{g,ym,ja,falta,disp,st,sobra:sobraDe(i)}})}
+function mesesParaAlvo(g,cof){const tx=cof?taxaMes(cof)*(1-(+cof.ir||0)/100):0;let s=guardadoTotal(g),n=0;
+ if(s>=g.alvo)return 0;while(s<g.alvo&&n<1200){s=s*(1+tx)+g.valor;n++}return n<1200?n:Infinity}
+function guardarMeta(gid,ym,v){const g=S.metas.find(x=>x.id===gid);if(!g)return;
+ const cof=S.contas.find(c=>c.id===g.conta&&c.tipo!=="banco");
+ if(!cof){toast("O cofrinho dessa meta não existe mais. Edite a meta e escolha outro.",false);return}
+ v=r2(v);const [a,m]=ym.split("-").map(Number),i=a*12+m-1,bs=bancos();
+ let o=bs.find(b=>saldoDe(b.id)>=v-0.001);
+ if(!o&&bs.length===1&&!S.cofre.some(x=>x.auto===ym)){const s=r2(sobraDe(i));
+  if(s>0&&saldoDe(bs[0].id)+s>=v-0.001){S.cofre.push({id:uid(),conta:bs[0].id,ym,valor:s,nota:"Sobra de "+NOMES[m-1].toLowerCase(),auto:ym});o=bs[0]}}
+ if(!o){toast("Nenhum banco tem saldo para guardar "+brl.format(v)+". Receba a sobra do mês no banco (tela Início) ou deposite antes.",false);return}
+ const par=uid(),nota="Guardar: "+g.nome;
+ S.cofre.push({id:uid(),conta:o.id,ym,valor:-v,nota,par,meta:g.id},{id:uid(),conta:cof.id,ym,valor:v,nota,par,meta:g.id});
+ salvar();render();toast("Guardado "+brl.format(v)+" em "+cof.nome+".",false)}
+
+// aviso na tela Início
+const dispensados=()=>{try{return JSON.parse(localStorage.getItem(KEY+".alg")||"[]")}catch(e){return[]}};
+function alertaGuardar(){const box=$("alg");box.textContent="";
+ const h0=hoje.getFullYear()*12+hoje.getMonth(),ym=ymI(h0),dis=dispensados();
+ planoGuardar(h0).filter(p=>(p.st==="ok"||p.st==="aperto")&&!dis.includes(ym+"|"+p.g.id)).forEach(p=>{
+  const v=p.st==="ok"?p.falta:p.disp,d=el("div","gi "+p.st),t=el("div","gt");
+  t.append(el("b","",p.st==="ok"?"Dá para guardar "+brl.format(v)+" em “"+p.g.nome+"”":"Sobram só "+brl.format(v)+" para “"+p.g.nome+"”"),
+   el("small","",p.st==="ok"?"Este mês sobram "+brl.format(p.disp)+" depois das dívidas. Sua meta é guardar "+brl.format(p.g.valor)+".":"A meta é guardar "+brl.format(p.g.valor)+", mas só sobram "+brl.format(p.disp)+" depois das dívidas. Quer guardar o que dá?"));
+  const ac=el("div","acts"),s=el("button","link","Agora não"),g=el("button","pri","Guardar "+brl.format(v));
+  s.type=g.type="button";s.dataset.gs=ym+"|"+p.g.id;g.dataset.ga=p.g.id;ac.append(s,g);d.append(t,ac);box.append(d)})}
+$("alg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
+ const h0=hoje.getFullYear()*12+hoje.getMonth();
+ if(b.dataset.gs){const l=dispensados();l.push(b.dataset.gs);try{localStorage.setItem(KEY+".alg",JSON.stringify(l.slice(-60)))}catch(x){}alertaGuardar()}
+ if(b.dataset.ga){const p=planoGuardar(h0).find(x=>x.g.id===b.dataset.ga);if(!p||(p.st!=="ok"&&p.st!=="aperto"))return;guardarMeta(p.g.id,p.ym,p.st==="ok"?p.falta:p.disp)}});
+
+// aba Metas > Guardar dinheiro
+function guardarUI(){const box=$("lgu");box.textContent="";const L=guardarMetas(),h0=hoje.getFullYear()*12+hoje.getMonth();
+ if(!L.length){box.append(el("div","vazio","Nenhuma meta de guardar ainda. Ex.: guardar R$ 100 por mês na reserva de emergência."));return}
+ L.forEach(g=>{const c=el("div","meta"),cof=S.contas.find(x=>x.id===g.conta);
+  c.append(el("b","",g.nome),el("div","",brl.format(g.valor)+" por mês · "+(cof?cof.nome:"cofrinho excluído")+(g.alvo>0?" · meta de "+brl.format(g.alvo):"")));
+  if(cof&&+cof.pcdi>0){const s=saldoDe(cof.id);c.append(el("small","res","Esse cofrinho rende "+fmtPct(cof.pcdi)+"% do CDI"+(s>0?" · hoje ≈ "+brl.format(rendeMes(cof,s).liq)+" por mês":"")))}
+  if(g.alvo>0){const gt=guardadoTotal(g),pc=Math.min(100,gt/g.alvo*100),pb=el("div","pb"),bi=el("i");bi.style.width=pc+"%";pb.append(bi);c.append(pb);
+   const res=el("div","res"),n=mesesParaAlvo(g,cof),n0=mesesParaAlvo(g,null);
+   res.append(document.createTextNode("Guardado "+brl.format(gt)+" de "+brl.format(g.alvo)+" ("+Math.floor(pc)+"%). "));
+   if(n===0)res.append(el("b","","Meta atingida!"));
+   else if(isFinite(n)){res.append(document.createTextNode("No ritmo de "+brl.format(g.valor)+" por mês você chega lá em "),el("b","",n+(n===1?" mês":" meses")),document.createTextNode(" ("+fmtYM(ymI(h0+n))+")."));
+    if(cof&&+cof.pcdi>0&&isFinite(n0)&&n0>n)res.append(document.createTextNode(" O rendimento adianta "+(n0-n)+(n0-n===1?" mês":" meses")+"."))}
+   c.append(res)}
+  const p=idx(g.inicio)>h0?null:planoGuardar(h0).find(x=>x.g.id===g.id),m=el("div","res");
+  if(!S.renda)m.textContent="Informe a renda mensal na tela Início para saber se sobra dinheiro.";
+  else if(!p)m.textContent="Começa em "+fmtYM(g.inicio)+".";
+  else if(p.st==="feito")m.append(el("b","","Este mês: já guardou "+brl.format(p.ja)+" ✓"));
+  else if(p.st==="ok")m.append(document.createTextNode("Este mês: sobram "+brl.format(p.disp)+" · "),el("b","","dá para guardar "+brl.format(p.falta)));
+  else if(p.st==="aperto")m.append(document.createTextNode("Este mês: sobram só "+brl.format(p.disp)+" · faltam "+brl.format(r2(p.falta-p.disp))+" para a meta"));
+  else m.textContent="Este mês não sobra dinheiro depois das dívidas.";
+  c.append(m);
+  if(S.renda){const dt=document.createElement("details"),tb=el("div","mm");dt.append(el("summary","","Ver os próximos meses"));
+   for(let k=0;k<6;k++){const i=h0+k;if(i<idx(g.inicio))continue;const q=planoGuardar(i).find(x=>x.g.id===g.id);if(!q)continue;
+    tb.append(el("span","ch "+(q.st==="nao"?"nao":q.st==="aperto"?"aperto":"ok"),fmtYM(ymI(i))+" · sobra "+brl.format(q.sobra)))}
+   dt.append(tb,el("small","","Verde: cabe guardar a meta. Amarelo: só parte. Vermelho: não sobra. A sobra é a renda do mês menos as dívidas.")); c.append(dt)}
+  const ac=el("div","acts");
+  if(p&&(p.st==="ok"||p.st==="aperto")){const gb=el("button","pri","Guardar "+brl.format(p.st==="ok"?p.falta:p.disp));gb.dataset.gg=g.id;ac.append(gb)}
+  const e=el("button","","Editar"),x=el("button","","Excluir");e.dataset.ge=g.id;x.dataset.gx=g.id;ac.append(e,x);c.append(ac);box.append(c)})}
+$("lgu").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
+ const h0=hoje.getFullYear()*12+hoje.getMonth();
+ if(b.dataset.gg){const p=planoGuardar(h0).find(x=>x.g.id===b.dataset.gg);if(!p||(p.st!=="ok"&&p.st!=="aperto"))return;guardarMeta(p.g.id,p.ym,p.st==="ok"?p.falta:p.disp)}
+ if(b.dataset.ge)abrirGu(b.dataset.ge);
+ if(b.dataset.gx){S.metas=S.metas.filter(x=>x.id!==b.dataset.gx);salvar();render()}});
+let guId=null;
+function abrirGu(id){guId=id||null;const g=id?S.metas.find(x=>x.id===id):null,cs=S.contas.filter(c=>c.tipo!=="banco"),s=$("guc");$("guerr").hidden=true;
+ $("gudt").textContent=g?"Editar meta de guardar":"Nova meta de guardar";s.textContent="";
+ cs.forEach(c=>{const o=document.createElement("option");o.value=c.id;o.textContent=c.nome;s.append(o)});
+ if(!cs.length){const o=document.createElement("option");o.value="";o.textContent="Nenhum cofrinho: crie um na aba Contas";s.append(o)}
+ else if(g&&cs.some(c=>c.id===g.conta))s.value=g.conta;
+ $("gun").value=g?g.nome:"";$("guv").value=g?g.valor:"";$("gua").value=g&&g.alvo?g.alvo:"";$("gui").value=g?g.inicio:ymStr(hoje.getFullYear(),hoje.getMonth()+1);$("dgu").showModal()}
+$("ngu").onclick=()=>abrirGu();$("gucx").onclick=()=>$("dgu").close();
+$("fgu").onsubmit=e=>{e.preventDefault();const conta=$("guc").value,er=m=>{$("guerr").textContent=m;$("guerr").hidden=false};
+ if(!S.contas.some(c=>c.id===conta&&c.tipo!=="banco"))return er("Crie um cofrinho na aba Contas para guardar o dinheiro.");
+ const g={id:guId||uid(),kind:"guardar",nome:$("gun").value.trim(),valor:r2(parseFloat($("guv").value)),conta,alvo:parseFloat($("gua").value)||0,inicio:$("gui").value};
+ if(!g.nome||!(g.valor>0))return er("Informe o nome e quanto pretende guardar por mês.");
+ if(g.alvo&&g.alvo<=g.valor)return er("O valor que quer juntar precisa ser maior que o guardado por mês.");
+ if(guId){const i=S.metas.findIndex(x=>x.id===guId);S.metas[i]=g}else S.metas.push(g);
+ $("dgu").close();salvar();render()};
 // ===== cartões, a receber, categorias, relatórios, navegação e animações =====
 const cl=x=>JSON.parse(JSON.stringify(x||[]));
 const DIA=864e5,d0=()=>{const t=new Date();return new Date(t.getFullYear(),t.getMonth(),t.getDate())};
@@ -462,7 +571,7 @@ function iniciar(){
  $("xcp").onclick=async()=>{try{await navigator.clipboard.writeText(txtRel());$("xmsg").textContent="Relatório copiado."}catch(e){$("xmsg").textContent="Não foi possível copiar aqui."}};
  fx()}
 // backup e importação (aceita também o dividas.json do programa antigo)
-$("bk").onclick=()=>{$("tx").value=JSON.stringify({itens:S.itens,pago:S.pago,renda:S.renda,metas:S.metas,entradas:S.entradas,cofre:S.cofre,contas:S.contas,rendaNome:S.rendaNome||"",cartoes:S.cartoes,receber:S.receber,categorias:S.categorias},null,1);$("msg").textContent="";$("dbk").showModal()};
+$("bk").onclick=()=>{$("tx").value=JSON.stringify({itens:S.itens,pago:S.pago,renda:S.renda,metas:S.metas,entradas:S.entradas,cofre:S.cofre,contas:S.contas,rendaNome:S.rendaNome||"",cartoes:S.cartoes,receber:S.receber,categorias:S.categorias,cdi:S.cdi||0},null,1);$("msg").textContent="";$("dbk").showModal()};
 $("fc").onclick=()=>$("dbk").close();
 $("cp").onclick=async()=>{try{await navigator.clipboard.writeText($("tx").value);$("msg").textContent="Copiado."}catch(e){$("tx").select();$("msg").textContent="Selecione e copie o texto manualmente."}};
 $("fl").onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{$("tx").value=r.result};r.readAsText(f)};
@@ -474,7 +583,7 @@ function converter(a){return a.map(d=>{
  return o})}
 $("im").onclick=()=>{try{const j=JSON.parse($("tx").value);
  if(Array.isArray(j)){S.itens=S.itens.concat(converter(j));$("msg").textContent=j.length+" dívidas importadas para "+ano+" (fixas começam em janeiro)."}
- else if(j&&Array.isArray(j.itens)){S.itens=j.itens;S.metas=j.metas||[];S.entradas=j.entradas||[];S.cofre=j.cofre||[];S.contas=j.contas||[];S.rendaNome=j.rendaNome||"";S.cartoes=j.cartoes||[];S.receber=j.receber||[];if(j.categorias&&j.categorias.length)S.categorias=j.categorias;migrar();S.pago=j.pago||{};S.renda=j.renda||0;$("msg").textContent="Backup restaurado."}
+ else if(j&&Array.isArray(j.itens)){S.itens=j.itens;S.metas=j.metas||[];S.entradas=j.entradas||[];S.cofre=j.cofre||[];S.contas=j.contas||[];S.rendaNome=j.rendaNome||"";S.cartoes=j.cartoes||[];S.receber=j.receber||[];if(j.categorias&&j.categorias.length)S.categorias=j.categorias;migrar();S.pago=j.pago||{};S.renda=j.renda||0;S.cdi=j.cdi||0;$("msg").textContent="Backup restaurado."}
  else throw 0;
  salvar();render()}catch(e){$("msg").textContent="Texto inválido. Cole o JSON completo."}};
 // ===== nuvem: login por e-mail + salvamento automático (Firebase) =====
@@ -485,7 +594,7 @@ function aplicar(d){
  S.itens=copia(d.itens||[]);S.metas=copia(d.metas||[]);S.entradas=copia(d.entradas||[]);S.cofre=copia(d.cofre||[]);S.contas=copia(d.contas||[]);
  S.rendaNome=d.rendaNome||"";S.cartoes=copia(d.cartoes||[]);S.receber=copia(d.receber||[]);
  if(d.categorias&&d.categorias.length)S.categorias=copia(d.categorias);
- S.pago={};(d.pago||[]).forEach(k=>S.pago[k]=1);S.renda=d.renda||0;S.tema=d.tema||S.tema||"";
+ S.pago={};(d.pago||[]).forEach(k=>S.pago[k]=1);S.renda=d.renda||0;S.cdi=d.cdi||S.cdi||0;S.tema=d.tema||S.tema||"";
  migrar();try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}
  if(S.tema)document.documentElement.dataset.theme=S.tema;render()}
 function mesclar(d){

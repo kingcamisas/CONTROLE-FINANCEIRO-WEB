@@ -149,3 +149,18 @@ button.hb svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:
 button.hb.on{color:var(--ac)}
 button.hb.on::after{content:"";position:absolute;top:8px;right:8px;width:8px;height:8px;border-radius:50%;background:var(--ok);border:2px solid var(--bg)}
 button.link{background:none;border:0;color:var(--ac);text-decoration:underline;padding:8px 0;min-height:0}
+
+/* ---- rendimento e metas de guardar ---- */
+.cs .wide{grid-column:1/-1}
+.cdir{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:end;margin:8px 0}
+.cdir label{display:block;color:var(--mu);font-size:13px}
+.cdir input{margin-top:4px}
+.alg{display:grid;gap:12px}
+.alg:empty{display:none}
+.gi{border:1px solid var(--ok);background:color-mix(in srgb,var(--ok) 12%,var(--sf));border-radius:12px;padding:12px 16px}
+.gi.aperto{border-color:#b58900;background:color-mix(in srgb,#b58900 14%,var(--sf))}
+.gi b{display:block}
+.gi small{display:block;margin-top:4px;color:var(--tx);opacity:.8;line-height:1.35}
+.gi .acts{margin-top:8px;align-items:center}
+.view>.alg:empty{margin-bottom:0}
+.meta>small.res{display:block}
